@@ -2,8 +2,6 @@
 
 Here is a simple demo which can provide a pipeline from kurento-webrtc to rtmp server(srs,nginx-rtmp-module).
 
-You can browse https://1029.mythkast.net to see this example.
-
 ![image](https://github.com/godka/kurento-rtmp/raw/master/img/rtp.png)
 
 The pipeline is probably like this:
@@ -13,21 +11,24 @@ The pipeline is probably like this:
 [FFmpeg] -> RTMP -> [Node_Media_Server(srs)] -> RTMP -> [Browser]
 ```
 
-## Build ##
-
-```
-1.install node && npm
-2.git clone https://github.com/godka/kurento-rtmp
-3.cd kurento-rtmp
-4.npm install
-5.node server.js
-6.Open https://yourhost on Chrome or Firefox
-7.Click Start button and have fun!
-```
-
-## Caution ##
+## Prerequisite ##
 
 Before running this demo,you must have build FFmpeg and Kurento Media Server on your server.
+
+1. [Install FFmpeg](https://github.com/adaptlearning/adapt_authoring/wiki/Installing-FFmpeg)
+2. [Run Kurento Media Server](https://hub.docker.com/r/kurento/kurento-media-server/)
+
+## Build & run ##
+
+```
+1. npm install
+2. cd static
+3. bower install
+4. cd ..
+5. node server.js
+6. Open https://yourhost on Chrome or Firefox
+7. Click Start button and have fun!
+```
 
 ## Licensing and distribution ##
 

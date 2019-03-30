@@ -15,56 +15,39 @@
  *
  */
 const NodeMediaServer = require('node-media-server').NodeMediaServer;
-var path = require('path');
-var url = require('url');
-var cookieParser = require('cookie-parser')
-var express = require('express');
-var session = require('express-session')
-var minimist = require('minimist');
-var ws = require('ws');
-var kurento = require('kurento-client');
-var fs = require('fs');
-var https = require('https');
-var childProcess = require('child_process');
-var spawn = childProcess.spawn;
-var fs = require("fs");
-var path = require('path');
+const path = require('path');
+const url = require('url');
+const cookieParser = require('cookie-parser');
+const express = require('express');
+const session = require('express-session');
+const minimist = require('minimist');
+const ws = require('ws');
+const kurento = require('kurento-client');
+const https = require('https');
+const childProcess = require('child_process');
+const spawn = childProcess.spawn;
+const fs = require("fs");
 
-var argv = minimist(process.argv.slice(2), {
+const argv = minimist(process.argv.slice(2), {
     default: {
         as_uri: 'https://localhost:8443/',
         ws_uri: 'ws://localhost:8888/kurento'
     }
 });
 
-var options =
+const options =
     {
         key: fs.readFileSync('keys/server.key'),
         cert: fs.readFileSync('keys/server.crt')
     };
 
-const rtmp_server_config = {
-    rtmp: {
-        port: 1935,
-        chunk_size: 60000,
-        gop_cache: true,
-        ping: 60,
-        ping_timeout: 30
-    },
-    http: {
-        port: 8000,
-        allow_origin: '*'
-    }
-};
+let session_index = 0;
 
-var app = express();
-var session_index = 0;
-/*
- * Management of sessions
- */
+const app = express();
+
 app.use(cookieParser());
 
-var sessionHandler = session({
+const sessionHandler = session({
     secret: 'none',
     rolling: true,
     resave: true,
@@ -76,21 +59,21 @@ app.use(sessionHandler);
 /*
  * Definition of global variables.
  */
-var sessions = {};
-var candidatesQueue = {};
-var kurentoClient = null;
+const sessions = {};
+const candidatesQueue = {};
+let kurentoClient = null;
 
 /*
  * Server startup
  */
-var asUrl = url.parse(argv.as_uri);
-var port = asUrl.port;
-var server = https.createServer(options, app).listen(port, function () {
+const asUrl = url.parse(argv.as_uri);
+const port = asUrl.port;
+const server = https.createServer(options, app).listen(port, () => {
     console.log('Kurento Tutorial started');
     console.log('Open ' + url.format(asUrl) + ' with a WebRTC capable browser');
 });
 
-var wss = new ws.Server({
+const wss = new ws.Server({
     server: server,
     path: '/magicmirror'
 });
@@ -98,30 +81,30 @@ var wss = new ws.Server({
 /*
  * Management of WebSocket messages
  */
-wss.on('connection', function (ws) {
-    var sessionId = null;
-    var request = ws.upgradeReq;
-    var response = {
+wss.on('connection', ws => {
+    const request = ws.upgradeReq;
+    const response = {
         writeHead: {}
     };
+    let sessionId = null;
 
-    sessionHandler(request, response, function (err) {
+    sessionHandler(request, response, error => {
         sessionId = request.session.id;
         console.log('Connection received with sessionId ' + sessionId);
     });
 
-    ws.on('error', function (error) {
+    ws.on('error', error => {
         console.log('Connection ' + sessionId + ' error');
         stop(sessionId);
     });
 
-    ws.on('close', function () {
+    ws.on('close', error => {
         console.log('Connection ' + sessionId + ' closed');
         stop(sessionId);
     });
 
-    ws.on('message', function (_message) {
-        var message = JSON.parse(_message);
+    ws.on('message', wsMessage => {
+        const message = JSON.parse(wsMessage);
         console.log('Connection ' + sessionId + ' received message ', message);
 
         switch (message.id) {
@@ -170,7 +153,7 @@ function getKurentoClient(callback) {
         return callback(null, kurentoClient);
     }
 
-    kurento(argv.ws_uri, function (error, _kurentoClient) {
+    kurento(argv.ws_uri, function(error, _kurentoClient) {
         if (error) {
             console.log("Could not find media server at address " + argv.ws_uri);
             return callback("Could not find media server at address" + argv.ws_uri
@@ -244,13 +227,13 @@ function start(sessionId, ws, sdpOffer, callback) {
                                 }
                                 console.log('start process on: rtp://' + streamIp + ':' + streamPort);
                                 console.log('recv sdp answer:', sdpAnswer);
-                                var _ffmpeg_child = bindFFmpeg(streamIp, streamPort, sdpRtpOfferString, ws);
+                                var ffmpeg_child = bindFFmpeg(streamIp, streamPort, sdpRtpOfferString, ws);
                                 sessions[sessionId] = {
                                     'pipeline': pipeline,
                                     'webRtcEndpoint': webRtcEndpoint,
                                     'rtpEndpoint': rtpEndpoint,
-                                    'ffmpeg_child_process': _ffmpeg_child
-                                }
+                                    'ffmpeg_child_process': ffmpeg_child
+                                };
                                 return callback(null, sdpAnswer);
                             });
                         });
@@ -274,8 +257,8 @@ function createMediaElements(pipeline, ws, callback) {
             return callback(error);
         }
 
-        webRtcEndpoint.setMaxVideoRecvBandwidth(200);
         webRtcEndpoint.setMinVideoRecvBandwidth(100);
+        webRtcEndpoint.setMaxVideoRecvBandwidth(200);
 
         pipeline.create("RtpEndpoint", function (error, rtpEndpoint) {
             if (error) {
@@ -316,23 +299,19 @@ function connectMediaElements(webRtcEndpoint, rtpEndpoint, callback) {
         }
         //it will cause loop back
         //see https://groups.google.com/forum/?hl=IT#!searchin/kurento/rtpendpoint/kurento/CiN79QObJWQ/YS-uGhP7t9AJ
-        /*
-        rtpEndpoint.connect(webRtcEndpoint, function (error) {
+
+        /*rtpEndpoint.connect(webRtcEndpoint, function (error) {
             if (error) {
                 return callback(error);
             }
             return callback(null);
-        });
-        */
+        });*/
+
         return callback(null);
     });
 }
-/*ffmpeg 
--protocol_whitelist "file,udp,rtp" 
--i test.sdp 
--vcodec copy 
--f flv 
-rtmp://localhost/live/stream
+/*
+ffmpeg -protocol_whitelist "file,udp,rtp" -i 127.0.0.1_55000.sdp -vcodec copy -f flv rtmp://localhost/live/stream
 */
 /*
 SDP:
@@ -357,6 +336,7 @@ function bindFFmpeg(streamip, streamport, sdpData, ws) {
         'rtmp://localhost/live/' + streamip + '_' + streamport
     ].concat();
     var child = spawn('ffmpeg', ffmpeg_args);
+    console.log(ffmpeg_args);
     ws.send(JSON.stringify({
         id: 'rtmp',
         message: '/live/' + streamip + '_' + streamport
@@ -400,7 +380,7 @@ function bindFFmpeg(streamip, streamport, sdpData, ws) {
         }
     });
     return child;
-};
+}
 
 function stop(sessionId) {
     if (sessions[sessionId]) {
@@ -435,9 +415,61 @@ function onIceCandidate(sessionId, _candidate) {
     }
 }
 
+// Frontend
 app.use(express.static(path.join(__dirname, 'static')));
-var nms = new NodeMediaServer(rtmp_server_config);
-nms.run();
-process.on('uncaughtException', function (error) {
-    console.log(error);
+
+// Node media server
+const nms = new NodeMediaServer({
+    rtmp: {
+        port: 1935,
+        chunk_size: 60000,
+        gop_cache: true,
+        ping: 60,
+        ping_timeout: 30
+    },
+    http: {
+        port: 8000,
+        allow_origin: '*'
+    }
 });
+
+nms.run();
+
+nms.on('preConnect', (id, args) => {
+    console.log('[NodeEvent on preConnect]', `id=${id} args=${JSON.stringify(args)}`);
+});
+
+nms.on('postConnect', (id, args) => {
+    console.log('[NodeEvent on postConnect]', `id=${id} args=${JSON.stringify(args)}`);
+});
+
+nms.on('doneConnect', (id, args) => {
+    console.log('[NodeEvent on doneConnect]', `id=${id} args=${JSON.stringify(args)}`);
+});
+
+nms.on('prePublish', (id, StreamPath, args) => {
+    console.log('[NodeEvent on prePublish]', `id=${id} StreamPath=${StreamPath} args=${JSON.stringify(args)}`);
+});
+
+nms.on('postPublish', (id, StreamPath, args) => {
+    console.log('[NodeEvent on postPublish]', `id=${id} StreamPath=${StreamPath} args=${JSON.stringify(args)}`);
+});
+
+nms.on('donePublish', (id, StreamPath, args) => {
+    console.log('[NodeEvent on donePublish]', `id=${id} StreamPath=${StreamPath} args=${JSON.stringify(args)}`);
+});
+
+nms.on('prePlay', (id, StreamPath, args) => {
+    console.log('[NodeEvent on prePlay]', `id=${id} StreamPath=${StreamPath} args=${JSON.stringify(args)}`);
+});
+
+nms.on('postPlay', (id, StreamPath, args) => {
+    console.log('[NodeEvent on postPlay]', `id=${id} StreamPath=${StreamPath} args=${JSON.stringify(args)}`);
+});
+
+nms.on('donePlay', (id, StreamPath, args) => {
+    console.log('[NodeEvent on donePlay]', `id=${id} StreamPath=${StreamPath} args=${JSON.stringify(args)}`);
+});
+
+// Error
+process.on('uncaughtException', error => console.error(error));
